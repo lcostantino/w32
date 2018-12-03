@@ -42,7 +42,6 @@ var (
 	defDlgProc                    = user32.NewProc("DefDlgProcW")
 	postQuitMessage               = user32.NewProc("PostQuitMessage")
 	getMessage                    = user32.NewProc("GetMessageW")
-	getMessageTime                = user32.NewProc("GetMessageTime")
 	translateMessage              = user32.NewProc("TranslateMessage")
 	dispatchMessage               = user32.NewProc("DispatchMessageW")
 	sendMessage                   = user32.NewProc("SendMessageW")
@@ -371,6 +370,9 @@ var (
 	setErrorMode               = kernel32.NewProc("SetErrorMode")
 	createFile                 = kernel32.NewProc("CreateFileW")
 	deviceIoControl            = kernel32.NewProc("DeviceIoControl")
+	findFirstStream            = kernel32.NewProc("FindFirstStreamW")
+	findNextStream             = kernel32.NewProc("FindNextStreamW")
+	findClose                  = kernel32.NewProc("FindClose")
 
 	coInitializeEx        = ole32.NewProc("CoInitializeEx")
 	coInitialize          = ole32.NewProc("CoInitialize")
@@ -587,11 +589,6 @@ func GetMessage(msg *MSG, hwnd HWND, msgFilterMin, msgFilterMax uint32) int {
 		uintptr(msgFilterMin),
 		uintptr(msgFilterMax),
 	)
-	return int(ret)
-}
-
-func GetMessageTime() int {
-	ret, _, _ := getMessageTime.Call()
 	return int(ret)
 }
 
@@ -3545,6 +3542,43 @@ func DeviceIoControl(
 	)
 	ok = ret != 0
 	return
+}
+
+func FindFirstStream(
+	lpFileName string,
+	infoLevel uint32,
+	lpFindStreamData *WIN32_FIND_STREAM_DATA,
+	flags DWORD,
+) (aHandle HANDLE, ok bool) {
+	ret, _, _ := findFirstStream.Call(
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(lpFileName))),
+		uintptr(infoLevel),
+		uintptr(unsafe.Pointer(lpFindStreamData)),
+		uintptr(flags),
+	)
+	aHandle = HANDLE(ret)
+	ok = (aHandle != ERROR_HANDLE_EOF && aHandle != INVALID_HANDLE_VALUE)
+	return aHandle, ok
+}
+
+func FindNextStream(
+	hFindStream HANDLE,
+	lpFindStreamData *WIN32_FIND_STREAM_DATA,
+) (ok bool) {
+	ret, _, _ := findNextStream.Call(
+		uintptr(hFindStream),
+		uintptr(unsafe.Pointer(lpFindStreamData)),
+	)
+	return ret != 0
+}
+
+func FindClose(
+	hFindFile HANDLE,
+) bool {
+	ret, _, _ := findClose.Call(
+		uintptr(hFindFile),
+	)
+	return (ret != 0)
 }
 
 func CoInitializeEx(coInit uintptr) HRESULT {
